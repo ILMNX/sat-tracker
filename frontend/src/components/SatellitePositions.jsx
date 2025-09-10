@@ -37,7 +37,11 @@ export default function SatellitePositions() {
   const [positions, setPositions] = useState([]);
   const [showLog, setShowLog] = useState(false);
   const [isCentered, setIsCentered] = useState(true);
+  const [location, setLocation] = useState("Loading...");
   const mapRef = useRef(null);
+
+  // Define latest immediately after positions
+  const latest = positions.length > 0 ? positions[positions.length - 1] : null;
 
   useEffect(() => {
     const fetchPositions = async () => {
@@ -65,9 +69,8 @@ export default function SatellitePositions() {
 
   useEffect(() => {
     // When new position arrives, check if map is centered
-    if (mapRef.current && positions.length > 0) {
+    if (mapRef.current && latest) {
       const map = mapRef.current;
-      const latest = positions[positions.length - 1];
       const center = map.getCenter();
       const dist = Math.sqrt(
         Math.pow(center.lat - latest.satlatitude, 2) +
@@ -75,7 +78,21 @@ export default function SatellitePositions() {
       );
       setIsCentered(dist < 0.01); // threshold for "centered"
     }
-  }, [positions]);
+  }, [positions, latest]);
+
+  useEffect(() => {
+    if (!latest) return;
+    const fetchLocation = async () => {
+      try {
+        const url = `http://localhost:5000/api/reverse-geocode/${latest.satlatitude}/${latest.satlongitude}`;
+        const response = await axios.get(url);
+        setLocation(response.data.location || "Unknown/Ocean");
+      } catch (error) {
+        setLocation("Unknown/Ocean");
+      }
+    };
+    fetchLocation();
+  }, [latest]);
 
   if (!positions || positions.length === 0) {
     return (
@@ -84,8 +101,6 @@ export default function SatellitePositions() {
       </div>
     );
   }
-
-  const latest = positions[positions.length - 1]; // last known position
 
   return (
     <div className="relative max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
@@ -113,6 +128,10 @@ export default function SatellitePositions() {
             <div>
               <span className="font-semibold">Altitude:</span>{" "}
               <span className="text-blue-700">{latest.sataltitude.toFixed(2)} km</span>
+            </div>
+            <div>
+              <span className="font-semibold">Location:</span>{" "}
+              <span className="text-blue-700">{location}</span>
             </div>
           </div>
         </div>
